@@ -28,7 +28,7 @@ public class ProductService {
 
     @PostConstruct
     public void init(){
-        create(new Product(null, "Кумыс", 123));
-        
+        create(new Product(null, "Индийский чай", 123));
+
     }
 }
