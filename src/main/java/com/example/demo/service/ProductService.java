@@ -59,7 +59,7 @@ public class ProductService {
 
     @PostConstruct
     public void init(){
-        
+        // create(new Product(null, "Кефир", 123));
     }
 }
 
