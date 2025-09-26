@@ -35,7 +35,7 @@ public class ProductController {
         this.productService = productService;
     }
 
-    private List<Product> products=new ArrayList<>(Arrays.asList(new Product(1l, "Сок", 130)));
+    // private List<Product> products=new ArrayList<>(Arrays.asList(new Product(1l, "Сок", 130)));
 
 
     @GetMapping("/products")
