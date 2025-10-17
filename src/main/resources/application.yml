@@ -2,14 +2,14 @@ spring:
     profiles:
         active: dev
     application:
-        name: "Demo"
-        version: "0.1"
+        name: "Demo"             
+        version: "0.1"            
 
 ---
 
 spring:
     datasource:
-        url: jdbc:postgresql://localhost:5433/test
+        url: jdbc:postgresql://localhost:5432/test
         username: postgres
         password: Heckfy20
         driver-class-name: org.postgresql.Driver
@@ -17,20 +17,31 @@ spring:
       database-platform: org.hibernate.dialect.PostgreSQLDialect
       hibernate: 
         ddl-auto: update
+      show-sql: true              
+      properties:
+        hibernate:
+          format_sql: true
     
     config:
         activate:
             on-profile: dev
     
-
-server:
+    # НАСТРОЙКИ ДЛЯ УМНОГО ДОМА (НОВЫЕ)
+    smart-home:
+      automation:
+        enabled: true
+        update-interval: 5000
+      iot:
+        mock-data: true
     
+server:
     port: 8080
     servlet:
         session:
             cookie:
                 same-site: none
                 secure: true
+
 jwt:
     secret: QWERTY
     access:
@@ -42,13 +53,17 @@ jwt:
         duration:
             day: 7
             seconds: 604800
+
+# ЛОГИРОВАНИЕ ДЛЯ УМНОГО ДОМА
+logging:
+  level:
+    com.example.smarthome: DEBUG
+    org.hibernate.SQL: DEBUG
+
 ---
 
 spring:
     config:
         activate:
             on-profile: prod
-
-server:
-    port: 9001
-
+   
