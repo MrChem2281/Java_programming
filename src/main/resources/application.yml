@@ -24,8 +24,24 @@ spring:
     
 
 server:
+    
     port: 8080
-
+    servlet:
+        session:
+            cookie:
+                same-site: none
+                secure: true
+jwt:
+    secret: QWERTY
+    access:
+        duration:
+            minute: 5
+            second: 300
+        name: access_token
+    refresh:
+        duration:
+            day: 7
+            seconds: 604800
 ---
 
 spring:
