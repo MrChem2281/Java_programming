@@ -24,10 +24,16 @@ public class Device {
     public enum DeviceType {
         TEMPERATURE_SENSOR,
         HUMIDITY_SENSOR, 
+        LIGHT_SENSOR,      
+        MOTION_SENSOR,     
         LIGHT,
         AIR_CONDITIONER,
+        HEATER,            
         MUSIC_PLAYER,
         TV,
-        CURTAIN
+        CURTAIN,
+        DEHUMIDIFIER,      
+        HUMIDIFIER,        
+        COFFEE_MAKER       
     }
 }

@@ -391,6 +391,40 @@
                 });
             }, 10000);
         }
+        function analyzeRoomConditions(status) {
+            const temp = status.sensorData.TEMPERATURE_SENSOR;
+            const humidity = status.sensorData.HUMIDITY_SENSOR;
+            const light = status.sensorData.LIGHT_SENSOR;
+            
+            let recommendations = [];
+            
+            if (temp > 26) {
+                recommendations.push("🌡️ Слишком жарко! Включите кондиционер");
+            } else if (temp < 18) {
+                recommendations.push("❄️ Слишком холодно! Включите обогреватель");
+            }
+            
+            if (humidity > 70) {
+                recommendations.push("💧 Высокая влажность! Проветрите помещение");
+            }
+            
+            if (light < 30 && status.occupied) {
+                recommendations.push("💡 Слишком темно! Включите свет");
+            }
+            
+            return recommendations;
+        }
+
+        // Показываем умные рекомендации
+        function showSmartRecommendations(status) {
+            const recommendations = analyzeRoomConditions(status);
+            if (recommendations.length > 0) {
+                const messageDiv = document.getElementById('message');
+                messageDiv.innerHTML = recommendations.map(rec => 
+                    `<div class="message warning">🎯 ${rec}</div>`
+                ).join('');
+            }
+        }
         
         // Запускаем симуляцию (для демо)
         simulateIoTData();

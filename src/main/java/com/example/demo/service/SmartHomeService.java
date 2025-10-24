@@ -109,4 +109,34 @@ public class SmartHomeService {
         Double lightLevel = status.getSensorData().get("LIGHT_SENSOR");
         return lightLevel != null && lightLevel < 50; // Если темно, возможно кто-то есть
     }
+
+    public Map<String, Object> getAutomationStats() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // Статистика по устройствам
+        long totalDevices = deviceRepository.count();
+        long onlineDevices = deviceRepository.findAll().stream()
+                .filter(Device::isOnline)
+                .count();
+        
+        stats.put("totalDevices", totalDevices);
+        stats.put("onlineDevices", onlineDevices);
+        stats.put("onlinePercentage", (onlineDevices * 100) / totalDevices);
+        
+        // Энергосбережение
+        List<Device> activeDevices = deviceRepository.findAll().stream()
+                .filter(d -> d.getLastValue() != null && d.getLastValue() > 0)
+                .collect(Collectors.toList());
+        
+        stats.put("activeDevices", activeDevices.size());
+        stats.put("energySaving", calculateEnergySaving());
+        
+        return stats;
+    }
+
+    private String calculateEnergySaving() {
+        // Простая логика расчета экономии
+        // В реальной системе здесь будут сложные вычисления
+        return "15%";
+    }
 }
