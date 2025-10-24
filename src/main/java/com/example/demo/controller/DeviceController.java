@@ -1,8 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.DeviceDataRequest; // Добавь этот импорт
 import com.example.demo.service.SmartHomeService;
-
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +16,7 @@ public class DeviceController {
     private final SmartHomeService smartHomeService;
     
     @PostMapping("/devices")
-    public ResponseEntity<String> receiveDeviceData(
-            @RequestBody DeviceDataRequest request) {
-        
+    public ResponseEntity<String> receiveDeviceData(@RequestBody DeviceDataRequest request) {
         try {
             smartHomeService.processDeviceData(
                 request.getDeviceId(), 
@@ -32,23 +29,12 @@ public class DeviceController {
         }
     }
     
-    // DTO для получения данных с устройств
-    @Data
-    public static class DeviceDataRequest {
-        private String deviceId;
-        private Double value;
-        private String dataType;
-    }
-    
     @PostMapping("/devices/command")
-    public ResponseEntity<String> sendDeviceCommand(
-            @RequestBody Map<String, Object> command) {
-        
+    public ResponseEntity<String> sendDeviceCommand(@RequestBody Map<String, Object> command) {
         String deviceId = (String) command.get("deviceId");
         String action = (String) command.get("action");
         Double value = (Double) command.get("value");
         
-        // Здесь будет логика отправки команд на устройства
         System.out.println("Command to " + deviceId + ": " + action + " value: " + value);
         
         return ResponseEntity.ok("Command sent successfully");
