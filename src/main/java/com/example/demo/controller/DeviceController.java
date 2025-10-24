@@ -1,6 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.DeviceDataRequest; // Добавь этот импорт
+import com.example.demo.dto.DeviceDataRequest;
 import com.example.demo.service.SmartHomeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
