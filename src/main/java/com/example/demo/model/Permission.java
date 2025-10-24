@@ -35,4 +35,10 @@ public class Permission implements GrantedAuthority {
     public String getAuthority(){
         return String.format("%s:%s", resource.toUpperCase(), operation.toUpperCase());
     }
+
+
+    public Permission(String string, String string2) {
+        this.resource = string;
+        this.operation = string2;
+    }
 }

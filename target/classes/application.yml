@@ -53,6 +53,7 @@ jwt:
         duration:
             day: 7
             seconds: 604800
+        name: refresh_token
 
 # ЛОГИРОВАНИЕ ДЛЯ УМНОГО ДОМА
 logging:
