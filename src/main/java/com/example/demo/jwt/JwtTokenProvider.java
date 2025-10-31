@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 
 public class JwtTokenProvider {
-    @Value("$(jwt.secret)")
+    @Value("${jwt.secret}")
     private String secret;
 
     public Token generateAccessToken(Map<String,Object> extraClaims, long duration, TemporalUnit durationType, UserDetails user){

@@ -43,7 +43,7 @@ public class User implements UserDetails {
     private Role role;
 
 
-    @OneToMany
+    @OneToMany(mappedBy = "user")
     private Set<Token> tokens;
 
 

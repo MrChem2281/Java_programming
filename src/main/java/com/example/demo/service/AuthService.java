@@ -7,16 +7,20 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.LoginResponse;
 import com.example.demo.dto.UserDto;
+import com.example.demo.dto.UserLogedDto;
 import com.example.demo.jwt.CookieUtil;
 import com.example.demo.jwt.JwtTokenProvider;
 import com.example.demo.mapper.UserMapper;
@@ -92,4 +96,32 @@ public class AuthService {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             return ResponseEntity.ok().headers(headers).body(new LoginResponse(true, user.getRole().getName()));
     }
+    public ResponseEntity<LoginResponse> refresh(String refreshToken){
+        if(!tokenProvider.validateToken(refreshToken)) throw new  RuntimeException("Token is invalid");
+        User user = userService.getByUsername(tokenProvider.getUsername(refreshToken));
+        HttpHeaders headers = new HttpHeaders();
+        Token newAccess = tokenProvider.generateAccessToken(Map.of("role",user.getRole().getAuthority()), accessTokenDurationMinute,ChronoUnit.MINUTES,user);
+        addAccessTokenCookie(headers, newAccess);
+        return ResponseEntity.ok().headers(headers).body(new LoginResponse(true, user.getRole().getName()));
+    }
+    public  ResponseEntity<LoginResponse> logout(String access){
+        SecurityContextHolder.clearContext();
+        User user = userService.getByUsername(tokenProvider.getUsername(access));
+        revokeAllTokensOfUser(user);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookieUtil.deleteAccessTokenCookie().toString());
+        headers.add(HttpHeaders.SET_COOKIE, cookieUtil.deleteRefreshTokenCookie().toString());
+        return ResponseEntity.ok().headers(headers).body(new LoginResponse(false,null));
+
+    }
+    public UserLogedDto getInfo(){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if(authentication instanceof AnonymousAuthenticationToken) throw new RuntimeException("anonymous user");
+        User user = userService.getByUsername(authentication.getName());
+        return UserMapper.userToUserLogedDto(user);
+    }
+//     @PostMapping
+//     public ResponseEntity<LoginResponse> refresh(@CookieValue(name = "refresh_token", inequired = false), String refresh){
+//         return authService
+//     }
 }

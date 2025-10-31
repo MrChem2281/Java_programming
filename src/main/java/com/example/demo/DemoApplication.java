@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @SpringBootApplication
 @RequiredArgsConstructor
-public class DemoApplication implements ApplicationRunner{
+public class DemoApplication {
 
     private final PasswordEncoder passwordEncoder;
 
@@ -29,23 +29,23 @@ public class DemoApplication implements ApplicationRunner{
 	private final RoleRepository roleRepository;
 	
 
-	@Override
-	public void run(ApplicationArguments args) throws Exception{
-		if (permissionRepository.count() == 0){
-			permissionRepository.save(new Permission("blank","read"));
-		}
-		if (roleRepository.count() == 0){
-			Role userRole = new Role();
-			userRole.setName("User");
-			userRole.setPermissions(new HashSet<>(Set.of(permissionRepository.findByResourceAndOperation("blank", "read"))));
-			roleRepository.save(userRole);
-		}
-		if(userRepository.count() == 0){
-			userRepository.save(User.builder().username("user")
-			.password(passwordEncoder.encode("user"))
-			.role(roleRepository.findByName("User")).build());
-		}
-	}
+	// @Override
+	// public void run(ApplicationArguments args) throws Exception{
+	// 	if (permissionRepository.count() == 0){
+	// 		permissionRepository.save(new Permission("blank","read"));
+	// 	}
+	// 	if (roleRepository.count() == 0){
+	// 		Role userRole = new Role();
+	// 		userRole.setName("User");
+	// 		userRole.setPermissions(new HashSet<>(Set.of(permissionRepository.findByResourceAndOperation("blank", "read"))));
+	// 		roleRepository.save(userRole);
+	// 	}
+	// 	if(userRepository.count() == 0){
+	// 		userRepository.save(User.builder().username("user")
+	// 		.password(passwordEncoder.encode("user"))
+	// 		.role(roleRepository.findByName("User")).build());
+	// 	}
+	// }
 
 	public static void main(String[] args) {
 		SpringApplication.run(DemoApplication.class, args);
