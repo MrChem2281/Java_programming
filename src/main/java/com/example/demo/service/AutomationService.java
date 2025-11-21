@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AutomationService {
@@ -20,25 +22,33 @@ public class AutomationService {
     private final ModeSettingsRepository modeSettingsRepository;
     
     public void processAutomation(Device triggeredDevice, Double value) {
+        log.info("Automation triggered by {}: {}", triggeredDevice.getName(), value);
         ModeSettings currentMode = modeSettingsRepository.findById(1L).orElse(null);
         if (currentMode == null || !"auto".equals(currentMode.getModeName())) {
+            log.debug("Automation skipped - mode not auto or not found");
             return;
         }
         
         // Основная логика автоматизации
         switch (triggeredDevice.getType()) {
             case TEMPERATURE_SENSOR:
+                log.debug("Temperature automation for: {}°C", value);
                 controlTemperature(value, currentMode);
                 break;
             case HUMIDITY_SENSOR:
+                log.debug("Humidity automation for: {}%", value);
                 controlHumidity(value);
                 break;
             case LIGHT_SENSOR:
+                log.debug("Light automation for: {} lux", value);
                 controlLighting(value, currentMode);
                 break;
             case MOTION_SENSOR:
+                log.debug("Motion detected: {}", value);
                 controlMotion(value);
                 break;
+            default:
+                log.debug("No automation for device type: {}", triggeredDevice.getType());    
         }
         
         // Дополнительная логика по времени суток
@@ -190,12 +200,17 @@ public class AutomationService {
     }
     
     private void sendCommand(String deviceId, String command, Double value) {
+        log.info("🚀 [{}] Command to {}: {} value: {}", 
+                 LocalDateTime.now(), deviceId, command, value);
         System.out.println("🚀 [" + LocalDateTime.now() + "] Command to " + deviceId + ": " + command + " value: " + value);
         
         Device device = deviceRepository.findByDeviceId(deviceId);
         if (device != null) {
             device.setLastValue(value);
             deviceRepository.save(device);
+            log.debug("Device {} state updated to value: {}", deviceId, value);
+        } else {
+            log.warn("Device not found for command: {}", deviceId);
         }
     }
 }

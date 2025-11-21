@@ -3,11 +3,13 @@ package com.example.demo.service;
 import com.example.demo.model.*;
 import com.example.demo.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmartHomeService {
@@ -19,26 +21,30 @@ public class SmartHomeService {
     private final AutomationService automationService;
     
     public RoomStatus getRoomStatus(Long roomId) {
+        log.debug("Getting room status for roomId: {}", roomId);
+        
         Room room = roomRepository.findById(roomId)
-            .orElseThrow(() -> new RuntimeException("Room not found"));
+            .orElseThrow(() -> {
+                log.error("Room not found with id: {}", roomId);
+                return new RuntimeException("Room not found");
+            });
         
         RoomStatus status = new RoomStatus();
         status.setRoomId(roomId);
         status.setRoomName(room.getName());
         
-        // Получаем данные устройств
         List<Device> devices = deviceRepository.findByRoomId(roomId);
+        log.debug("Found {} devices for room: {}", devices.size(), room.getName());
         
         for (Device device : devices) {
-            // Данные сенсоров
             if (device.getType().name().contains("SENSOR")) {
                 DeviceData latestData = deviceDataRepository.findTopByDeviceIdOrderByTimestampDesc(device.getId());
                 if (latestData != null) {
                     status.getSensorData().put(device.getType().name(), latestData.getValue());
+                    log.trace("Sensor data for {}: {}", device.getName(), latestData.getValue());
                 }
             }
             
-            // Статус устройств
             Map<String, Object> deviceStatus = new HashMap<>();
             deviceStatus.put("online", device.isOnline());
             deviceStatus.put("lastValue", device.getLastValue());
@@ -47,20 +53,23 @@ public class SmartHomeService {
             status.getDeviceStatus().put(device.getName(), deviceStatus);
         }
         
-        // Определяем занятость комнаты (по движению или другим сенсорам)
         status.setOccupied(detectRoomOccupancy(status));
         status.setCurrentMode(getCurrentMode().getModeName());
         
+        log.info("Room status retrieved for {}: {} devices, occupied: {}", 
+                 room.getName(), devices.size(), status.isOccupied());
         return status;
     }
     
     public void processDeviceData(String deviceId, Double value, String dataType) {
+        log.info("Processing device data - Device: {}, Value: {}, Type: {}", deviceId, value, dataType);
+        
         Device device = deviceRepository.findByDeviceId(deviceId);
         if (device == null) {
+            log.error("Device not found: {}", deviceId);
             throw new RuntimeException("Device not found: " + deviceId);
         }
         
-        // Сохраняем данные
         DeviceData deviceData = new DeviceData();
         deviceData.setDevice(device);
         deviceData.setValue(value);
@@ -68,27 +77,29 @@ public class SmartHomeService {
         deviceData.setTimestamp(LocalDateTime.now());
         deviceDataRepository.save(deviceData);
         
-        // Обновляем устройство
         device.setLastValue(value);
         device.setOnline(true);
         deviceRepository.save(device);
         
-        // Автоматизация
+        log.debug("Device data saved and automation triggered for: {}", device.getName());
         automationService.processAutomation(device, value);
     }
     
     public ModeSettings updateModeSettings(ModeSettings settings) {
-        return modeSettingsRepository.save(settings);
+        log.info("Updating mode settings to: {}", settings.getModeName());
+        ModeSettings updated = modeSettingsRepository.save(settings);
+        log.debug("Mode settings updated: {}", updated);
+        return updated;
     }
     
     public ModeSettings getCurrentMode() {
-        // Сначала пытаемся найти существующий режим
         List<ModeSettings> allModes = modeSettingsRepository.findAll();
         if (!allModes.isEmpty()) {
-            return allModes.get(0); // Возвращаем первый найденный
+            log.debug("Current mode: {}", allModes.get(0).getModeName());
+            return allModes.get(0);
         }
         
-        // Если нет режимов, создаем дефолтный
+        log.info("No modes found, creating default mode");
         return createDefaultMode();
     }
     
@@ -100,20 +111,23 @@ public class SmartHomeService {
         defaultMode.setAutoLightControl(true);
         defaultMode.setAutoEntertainment(false);
         defaultMode.setTargetLightLevel(300);
+        
+        log.info("Created default mode: auto");
         return modeSettingsRepository.save(defaultMode);
     }
     
     private boolean detectRoomOccupancy(RoomStatus status) {
-        // Простая логика определения занятости
-        // В реальной системе здесь будут данные с датчиков движения
         Double lightLevel = status.getSensorData().get("LIGHT_SENSOR");
-        return lightLevel != null && lightLevel < 50; // Если темно, возможно кто-то есть
+        boolean occupied = lightLevel != null && lightLevel < 50;
+        log.trace("Room occupancy detection - lightLevel: {}, occupied: {}", lightLevel, occupied);
+        return occupied;
     }
 
     public Map<String, Object> getAutomationStats() {
+        log.debug("Generating automation statistics");
+        
         Map<String, Object> stats = new HashMap<>();
         
-        // Статистика по устройствам
         long totalDevices = deviceRepository.count();
         long onlineDevices = deviceRepository.findAll().stream()
                 .filter(Device::isOnline)
@@ -123,7 +137,6 @@ public class SmartHomeService {
         stats.put("onlineDevices", onlineDevices);
         stats.put("onlinePercentage", (onlineDevices * 100) / totalDevices);
         
-        // Энергосбережение
         List<Device> activeDevices = deviceRepository.findAll().stream()
                 .filter(d -> d.getLastValue() != null && d.getLastValue() > 0)
                 .collect(Collectors.toList());
@@ -131,12 +144,12 @@ public class SmartHomeService {
         stats.put("activeDevices", activeDevices.size());
         stats.put("energySaving", calculateEnergySaving());
         
+        log.info("Automation stats - Total: {}, Online: {}, Active: {}", 
+                 totalDevices, onlineDevices, activeDevices.size());
         return stats;
     }
 
     private String calculateEnergySaving() {
-        // Простая логика расчета экономии
-        // В реальной системе здесь будут сложные вычисления
         return "15%";
     }
 }

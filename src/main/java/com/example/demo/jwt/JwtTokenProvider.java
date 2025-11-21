@@ -22,7 +22,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 
@@ -38,6 +40,9 @@ public class JwtTokenProvider {
         .setIssuedAt(toDate(now))
         .setExpiration(toDate(expiryData))
         .signWith(decodeSecretKey(secret), SignatureAlgorithm.HS256).compact();
+
+        log.info("Generated ACCESS token for user: {}, expires: {}", user.getUsername(), expiryData);
+
         return new Token(TokenType.ACCESS, token, expiryData, false, null);
     }
      public Token generateRefreshToken(long duration, TemporalUnit durationType, UserDetails user){
@@ -49,6 +54,9 @@ public class JwtTokenProvider {
         .setIssuedAt(toDate(now))
         .setExpiration(toDate(expiryData))
         .signWith(decodeSecretKey(secret), SignatureAlgorithm.HS256).compact();
+
+        log.info("Generated REFRESH token for user: {}, expires: {}", user.getUsername(), expiryData);
+
         return new Token(TokenType.REFRESH, token, expiryData, false, null);
     }
 
@@ -66,16 +74,25 @@ public class JwtTokenProvider {
     }
     
     public String getUsername(String token){
-        return extractClaim(token,Claims::getSubject);
+        try {
+            String username = extractClaim(token, Claims::getSubject);
+            log.debug("Extracted username from token: {}", username);
+            return username;
+        } catch (Exception e) {
+            log.error("Error extracting username from token: {}", e.getMessage());
+            return null;
+        }
     }
 
     public boolean validateToken(String token){
         if(token == null) return false;
         try{
             Jwts.parserBuilder().setSigningKey(decodeSecretKey(secret)).build().parseClaimsJws(token);
+            log.debug("Token validation successful");
             return true;
         }
         catch (JwtException ex){
+            log.warn("Token validation failed: {}", ex.getMessage());
             return false;
         }
     }
@@ -86,9 +103,13 @@ public class JwtTokenProvider {
 
 
     private Key decodeSecretKey(String secret){
-        byte[] decodeKey = Base64.getDecoder().decode(secret);
-
-        return Keys.hmacShaKeyFor(decodeKey);
+        try {
+            byte[] decodeKey = Base64.getDecoder().decode(secret);
+            return Keys.hmacShaKeyFor(decodeKey);
+        } catch (IllegalArgumentException e) {
+            log.error("Error decoding secret key: {}", e.getMessage());
+            return Keys.hmacShaKeyFor(secret.getBytes());
+        }
     }
     private Date toDate(LocalDateTime time){
         return Date.from(time.toInstant(ZoneOffset.UTC));

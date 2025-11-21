@@ -108,6 +108,7 @@
             background: var(--secondary);
             color: white;
         }
+        
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -132,6 +133,7 @@
         .chart-container canvas {
             max-height: 200px;
         }
+        
         .device-controls-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -211,6 +213,54 @@
             gap: 10px;
             justify-content: space-between;
         }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input[type="range"] {
+            width: 100%;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .sensor-card {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .message.warning {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .message.success {
+            background: #d1edff;
+            border-color: #b3d9ff;
+            color: #004085;
+        }
     </style>
 </head>
 <body>
@@ -241,7 +291,8 @@
             <!-- Статус комнаты -->
             <div class="card">
                 <h2 id="current-room">Гостиная</h2>
-                <div class="sensor-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div id="message"></div>
+                <div class="sensor-grid">
                     <div class="sensor-card">
                         <h4>🌡️ Температура</h4>
                         <div class="sensor-value" id="temperature">--°C</div>
@@ -268,6 +319,8 @@
                     <!-- Список устройств -->
                 </div>
             </div>
+
+            <!-- Графики -->
             <div class="card">
                 <h3>📈 Статистика энергии и активности</h3>
                 
@@ -293,6 +346,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- Настройки режима -->
             <div class="card">
                 <h3>Настройки автоматизации</h3>
@@ -314,6 +368,8 @@
                     </label>
                 </div>
             </div>
+
+            <!-- Расширенное управление устройствами -->
             <div class="card">
                 <h3>🎚️ Расширенное управление устройствами</h3>
                 
@@ -398,6 +454,9 @@
         </div>
     </div>
 
+    <!-- Контейнер для всплывающих сообщений -->
+    <div id="message-container"></div>
+
     <script>
         const API_BASE = 'http://localhost:8080/api';
         let currentRoomId = 1;
@@ -405,10 +464,60 @@
         
         // Загрузка данных при старте
         document.addEventListener('DOMContentLoaded', function() {
+            loadRooms();
             loadRoomStatus();
             loadCurrentMode();
+            initializeCharts();
             setInterval(loadRoomStatus, 5000); // Обновление каждые 5 секунд
+            simulateIoTData(); // Запуск симуляции данных
         });
+        
+        // Загрузка списка комнат
+        async function loadRooms() {
+            try {
+                // В реальном приложении здесь будет запрос к API
+                const rooms = [
+                    { id: 1, name: 'Гостинная' },
+                    { id: 2, name: 'Спальня' },
+                    { id: 3, name: 'Кухня' },
+                    { id: 4, name: 'Ванная' },
+                    { id: 5, name: 'Кабинет' }
+                ];
+                
+                const roomsList = document.getElementById('rooms-list');
+                roomsList.innerHTML = '';
+                
+                rooms.forEach(room => {
+                    const roomDiv = document.createElement('div');
+                    roomDiv.className = 'room-card';
+                    roomDiv.innerHTML = `
+                        <h4>${room.name}</h4>
+                        <button onclick="selectRoom(${room.id})">Выбрать</button>
+                    `;
+                    roomsList.appendChild(roomDiv);
+                });
+            } catch (error) {
+                console.error('Error loading rooms:', error);
+            }
+        }
+
+        // Выбор комнаты
+        function selectRoom(roomId) {
+            currentRoomId = roomId;
+            loadRoomStatus();
+            showMessage(`Выбрана комната: ${getRoomName(roomId)}`, 'success');
+        }
+
+        function getRoomName(roomId) {
+            const rooms = {
+                1: 'Гостинная',
+                2: 'Спальня', 
+                3: 'Кухня',
+                4: 'Ванная',
+                5: 'Кабинет'
+            };
+            return rooms[roomId] || 'Неизвестная комната';
+        }
         
         // Загрузка статуса комнаты
         async function loadRoomStatus() {
@@ -445,6 +554,7 @@
                 status.occupied ? 'Занято' : 'Свободно';
                 
             updateDevicesDisplay(status.deviceStatus);
+            showSmartRecommendations(status);
         }
         
         // Обновление отображения устройств
@@ -462,7 +572,7 @@
                             ${status.online ? '🟢' : '🔴'}
                         </span>
                     </div>
-                    <div>${status.lastValue || '--'}</div>
+                    <div>${status.lastValue !== null && status.lastValue !== undefined ? status.lastValue : '--'}</div>
                     <button onclick="sendCommand('${name}', 'TOGGLE')">
                         ${status.lastValue > 0 ? 'Выкл' : 'Вкл'}
                     </button>
@@ -492,9 +602,30 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currentSettings)
                 });
+                
+                showMessage(`Режим изменен на: ${mode}`, 'success');
             } catch (error) {
                 console.error('Error setting mode:', error);
+                showMessage('Ошибка изменения режима', 'error');
             }
+        }
+        
+        // Обновление отображения режима
+        function updateModeDisplay(mode) {
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(mode.modeName)) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Обновляем настройки в форме
+            if (mode.targetTemperature) {
+                document.getElementById('target-temp').value = mode.targetTemperature;
+                document.getElementById('temp-value').textContent = mode.targetTemperature + '°C';
+            }
+            document.getElementById('auto-light').checked = mode.autoLightControl || false;
+            document.getElementById('auto-entertainment').checked = mode.autoEntertainment || false;
         }
         
         // Обновление настроек режима
@@ -518,8 +649,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currentSettings)
                 });
+                
+                showMessage('Настройки обновлены', 'success');
             } catch (error) {
                 console.error('Error updating settings:', error);
+                showMessage('Ошибка обновления настроек', 'error');
             }
         }
         
@@ -536,10 +670,11 @@
                     })
                 });
                 
-                // Перезагружаем статус
+                showMessage(`Команда отправлена устройству: ${deviceName}`, 'success');
                 loadRoomStatus();
             } catch (error) {
                 console.error('Error sending command:', error);
+                showMessage('Ошибка отправки команды', 'error');
             }
         }
         
@@ -551,22 +686,253 @@
         function setComfortMode() {
             document.getElementById('target-temp').value = 24;
             document.getElementById('auto-light').checked = true;
+            document.getElementById('auto-entertainment').checked = true;
             updateModeSettings();
+            showMessage('Включен комфортный режим', 'success');
         }
         
         function setAwayMode() {
             document.getElementById('target-temp').value = 18;
             document.getElementById('auto-light').checked = false;
+            document.getElementById('auto-entertainment').checked = false;
             updateModeSettings();
+            showMessage('Включен режим "Нет дома"', 'success');
         }
-        
-        // Имитация данных с IoT устройств (для демонстрации)
+
+        // Умные рекомендации
+        function analyzeRoomConditions(status) {
+            const temp = status.sensorData.TEMPERATURE_SENSOR;
+            const humidity = status.sensorData.HUMIDITY_SENSOR;
+            const light = status.sensorData.LIGHT_SENSOR;
+            
+            let recommendations = [];
+            
+            if (temp > 26) {
+                recommendations.push("🌡️ Слишком жарко! Включите кондиционер");
+            } else if (temp < 18) {
+                recommendations.push("❄️ Слишком холодно! Включите обогреватель");
+            }
+            
+            if (humidity > 70) {
+                recommendations.push("💧 Высокая влажность! Проветрите помещение");
+            } else if (humidity < 30) {
+                recommendations.push("🏜️ Низкая влажность! Включите увлажнитель");
+            }
+            
+            if (light < 30 && status.occupied) {
+                recommendations.push("💡 Слишком темно! Включите свет");
+            }
+            
+            return recommendations;
+        }
+
+        // Показываем умные рекомендации
+        function showSmartRecommendations(status) {
+            const recommendations = analyzeRoomConditions(status);
+            const messageDiv = document.getElementById('message');
+            
+            if (recommendations.length > 0) {
+                messageDiv.innerHTML = recommendations.map(rec => 
+                    `<div class="message warning">🎯 ${rec}</div>`
+                ).join('');
+            } else {
+                messageDiv.innerHTML = '<div class="message success">✅ Условия в комнате оптимальны</div>';
+            }
+        }
+
+        // Инициализация графиков
+        let energyChart, devicesChart, temperatureChart, modesChart;
+
+        function initializeCharts() {
+            // График потребления энергии
+            const energyCtx = document.getElementById('energyChart').getContext('2d');
+            energyChart = new Chart(energyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                    datasets: [{
+                        label: 'Потребление (кВт·ч)',
+                        data: [12.5, 11.8, 13.2, 10.5, 9.8, 8.2, 7.5],
+                        borderColor: '#36a2eb',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: false }
+                    }
+                }
+            });
+
+            // График активности устройств
+            const devicesCtx = document.getElementById('devicesChart').getContext('2d');
+            devicesChart = new Chart(devicesCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Свет', 'Кондиционер', 'Обогреватель', 'Музыка', 'TV'],
+                    datasets: [{
+                        label: 'Часы работы',
+                        data: [8, 6, 3, 2, 4],
+                        backgroundColor: [
+                            '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'
+                        ]
+                    }]
+                }
+            });
+
+            // График температуры
+            const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+            temperatureChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                    datasets: [{
+                        label: 'Температура (°C)',
+                        data: [21, 20, 22, 24, 23, 22],
+                        borderColor: '#ff6384',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.4
+                    }]
+                }
+            });
+
+            // Круговой график режимов
+            const modesCtx = document.getElementById('modesChart').getContext('2d');
+            modesChart = new Chart(modesCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Авто', 'Ручной', 'Эко', 'Комфорт'],
+                    datasets: [{
+                        data: [60, 20, 15, 5],
+                        backgroundColor: [
+                            '#36a2eb', '#ffce56', '#4bc0c0', '#ff6384'
+                        ]
+                    }]
+                }
+            });
+        }
+
+        // Управление светом
+        function updateLightBrightness(value) {
+            document.getElementById('brightnessValue').textContent = value + '%';
+            sendDeviceCommand('light_living_1', 'SET_BRIGHTNESS', parseFloat(value));
+        }
+
+        function updateLightTemperature(value) {
+            document.getElementById('tempValue').textContent = value + 'K';
+            sendDeviceCommand('light_living_1', 'SET_TEMPERATURE', parseFloat(value));
+        }
+
+        function toggleLight() {
+            sendDeviceCommand('light_living_1', 'TOGGLE', 1.0);
+        }
+
+        // Управление кондиционером
+        function updateACTemperature(value) {
+            document.getElementById('acTempValue').textContent = value + '°C';
+            sendDeviceCommand('ac_living_1', 'SET_TEMPERATURE', parseFloat(value));
+        }
+
+        function updateFanSpeed(speed) {
+            sendDeviceCommand('ac_living_1', 'SET_FAN_SPEED', speed);
+        }
+
+        function toggleAC() {
+            sendDeviceCommand('ac_living_1', 'TOGGLE', 1.0);
+        }
+
+        // Управление шторами
+        function updateCurtainPosition(value) {
+            document.getElementById('curtainValue').textContent = value + '%';
+            sendDeviceCommand('curtain_1', 'SET_POSITION', parseFloat(value));
+        }
+
+        function setCurtainPosition(position) {
+            document.getElementById('curtainPosition').value = position;
+            updateCurtainPosition(position);
+        }
+
+        // Управление музыкой
+        function updateMusicVolume(value) {
+            document.getElementById('volumeValue').textContent = value + '%';
+            sendDeviceCommand('music_1', 'SET_VOLUME', parseFloat(value));
+        }
+
+        function changeMusicGenre(genre) {
+            sendDeviceCommand('music_1', 'SET_GENRE', genre);
+        }
+
+        function toggleMusic() {
+            sendDeviceCommand('music_1', 'TOGGLE', 1.0);
+        }
+
+        // Общая функция отправки команд устройствам
+        async function sendDeviceCommand(deviceId, action, value) {
+            try {
+                const response = await fetch(`${API_BASE}/devices/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        deviceId: deviceId,
+                        action: action,
+                        value: value
+                    })
+                });
+                
+                if (response.ok) {
+                    showMessage(`✅ Команда отправлена: ${action}`, 'success');
+                } else {
+                    showMessage(`❌ Ошибка отправки команды`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Ошибка отправки команды: ${error.message}`, 'error');
+            }
+        }
+
+        // Функция для отображения сообщений
+        function showMessage(message, type) {
+            let messageContainer = document.getElementById('message-container');
+            if (!messageContainer) {
+                messageContainer = document.createElement('div');
+                messageContainer.id = 'message-container';
+                messageContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 1000;
+                `;
+                document.body.appendChild(messageContainer);
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = message;
+            messageDiv.style.cssText = `
+                background: ${type === 'success' ? '#27ae60' : '#e74c3c'};
+                color: white;
+                padding: 10px 15px;
+                margin: 5px 0;
+                border-radius: 5px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            `;
+            
+            messageContainer.appendChild(messageDiv);
+            
+            // Автоматически удаляем сообщение через 3 секунды
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        // Имитация данных с IoT устройств
         function simulateIoTData() {
             setInterval(() => {
                 // Имитируем случайные данные с датчиков
                 const temp = 20 + Math.random() * 10;
                 const humidity = 40 + Math.random() * 40;
-                const light = Math.random() * 100;
+                const light = Math.random() * 200;
                 
                 // Отправляем на сервер
                 fetch(`${API_BASE}/devices`, {
@@ -600,204 +966,6 @@
                 });
             }, 10000);
         }
-        function analyzeRoomConditions(status) {
-            const temp = status.sensorData.TEMPERATURE_SENSOR;
-            const humidity = status.sensorData.HUMIDITY_SENSOR;
-            const light = status.sensorData.LIGHT_SENSOR;
-            
-            let recommendations = [];
-            
-            if (temp > 26) {
-                recommendations.push("🌡️ Слишком жарко! Включите кондиционер");
-            } else if (temp < 18) {
-                recommendations.push("❄️ Слишком холодно! Включите обогреватель");
-            }
-            
-            if (humidity > 70) {
-                recommendations.push("💧 Высокая влажность! Проветрите помещение");
-            }
-            
-            if (light < 30 && status.occupied) {
-                recommendations.push("💡 Слишком темно! Включите свет");
-            }
-            
-            return recommendations;
-        }
-
-        // Показываем умные рекомендации
-        function showSmartRecommendations(status) {
-            const recommendations = analyzeRoomConditions(status);
-            if (recommendations.length > 0) {
-                const messageDiv = document.getElementById('message');
-                messageDiv.innerHTML = recommendations.map(rec => 
-                    `<div class="message warning">🎯 ${rec}</div>`
-                ).join('');
-            }
-        }
-        
-        let energyChart, devicesChart, temperatureChart, modesChart;
-
-function initializeCharts() {
-    // График потребления энергии
-    const energyCtx = document.getElementById('energyChart').getContext('2d');
-    energyChart = new Chart(energyCtx, {
-        type: 'line',
-        data: {
-            labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-            datasets: [{
-                label: 'Потребление (кВт·ч)',
-                data: [12.5, 11.8, 13.2, 10.5, 9.8, 8.2, 7.5],
-                borderColor: '#36a2eb',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: { display: false }
-            }
-        }
-    });
-
-    // График активности устройств
-    const devicesCtx = document.getElementById('devicesChart').getContext('2d');
-    devicesChart = new Chart(devicesCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Свет', 'Кондиционер', 'Обогреватель', 'Музыка', 'TV'],
-            datasets: [{
-                label: 'Часы работы',
-                data: [8, 6, 3, 2, 4],
-                backgroundColor: [
-                    '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'
-                ]
-            }]
-        }
-    });
-
-    // График температуры
-    const tempCtx = document.getElementById('temperatureChart').getContext('2d');
-    temperatureChart = new Chart(tempCtx, {
-        type: 'line',
-        data: {
-            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-            datasets: [{
-                label: 'Температура (°C)',
-                data: [21, 20, 22, 24, 23, 22],
-                borderColor: '#ff6384',
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                tension: 0.4
-            }]
-        }
-    });
-
-    // Круговой график режимов
-    const modesCtx = document.getElementById('modesChart').getContext('2d');
-    modesChart = new Chart(modesCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Авто', 'Ручной', 'Эко', 'Комфорт'],
-                    datasets: [{
-                        data: [60, 20, 15, 5],
-                        backgroundColor: [
-                            '#36a2eb', '#ffce56', '#4bc0c0', '#ff6384'
-                        ]
-                    }]
-                }
-            });
-        }
-
-        // Обновляй графики при загрузке данных
-        function updateCharts(stats) {
-            if (energyChart) {
-                // Можно обновлять данные графиков на основе реальных данных
-                energyChart.data.datasets[0].data = [12, 11, 13, 10, 9, 8, 7];
-                energyChart.update();
-            }
-        }
-
-        // Инициализируй графики при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeCharts();
-        });
-        // Управление светом
-        function updateLightBrightness(value) {
-            document.getElementById('brightnessValue').textContent = value + '%';
-            sendDeviceCommand('light_1', 'SET_BRIGHTNESS', parseFloat(value));
-        }
-
-        function updateLightTemperature(value) {
-            document.getElementById('tempValue').textContent = value + 'K';
-            sendDeviceCommand('light_1', 'SET_TEMPERATURE', parseFloat(value));
-        }
-
-        function toggleLight() {
-            sendDeviceCommand('light_1', 'TOGGLE', 1.0);
-        }
-
-        // Управление кондиционером
-        function updateACTemperature(value) {
-            document.getElementById('acTempValue').textContent = value + '°C';
-            sendDeviceCommand('ac_1', 'SET_TEMPERATURE', parseFloat(value));
-        }
-
-        function updateFanSpeed(speed) {
-            sendDeviceCommand('ac_1', 'SET_FAN_SPEED', speed);
-        }
-
-        function toggleAC() {
-            sendDeviceCommand('ac_1', 'TOGGLE', 1.0);
-        }
-
-        // Управление шторами
-        function updateCurtainPosition(value) {
-            document.getElementById('curtainValue').textContent = value + '%';
-            sendDeviceCommand('curtain_1', 'SET_POSITION', parseFloat(value));
-        }
-
-        function setCurtainPosition(position) {
-            document.getElementById('curtainPosition').value = position;
-            updateCurtainPosition(position);
-        }
-
-        // Управление музыкой
-        function updateMusicVolume(value) {
-            document.getElementById('volumeValue').textContent = value + '%';
-            sendDeviceCommand('music_1', 'SET_VOLUME', parseFloat(value));
-        }
-
-        function changeMusicGenre(genre) {
-            sendDeviceCommand('music_1', 'SET_GENRE', genre);
-        }
-
-        function toggleMusic() {
-            sendDeviceCommand('music_1', 'TOGGLE', 1.0);
-        }
-
-        // Общая функция отправки команд
-        async function sendDeviceCommand(deviceId, action, value) {
-            try {
-                const response = await fetch('/api/devices/command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        deviceId: deviceId,
-                        action: action,
-                        value: value
-                    })
-                });
-                
-                if (response.ok) {
-                    showMessage(`✅ Команда отправлена: ${action}`, 'success');
-                }
-            } catch (error) {
-                showMessage(`❌ Ошибка отправки команды: ${error.message}`, 'error');
-            }
-        }
-        // Запускаем симуляцию (для демо)
-        simulateIoTData();
     </script>
 </body>
 </html>

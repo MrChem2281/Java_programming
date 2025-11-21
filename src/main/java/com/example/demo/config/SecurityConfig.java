@@ -46,7 +46,7 @@ public class SecurityConfig {
             authorize.requestMatchers(ALLOWED_URLS).permitAll();
             authorize.requestMatchers("/api/auth/login").permitAll();
             authorize.requestMatchers("/api/auth/refresh").permitAll();
-            authorize.anyRequest().authenticated();
+            authorize.anyRequest().permitAll();
         });
 
         http.sessionManagement(session -> session.sessionCreationPolicy(
@@ -57,6 +57,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+    
     @Bean
     static PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
