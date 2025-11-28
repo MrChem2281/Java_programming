@@ -24,13 +24,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-
     private static final String[] ALLOWED_URLS =
-    {"/swagger-ui/**", "/v3/api-docs/**"};
+    {"/swagger-ui/**", "/v3/api-docs/**", "/uploads/**"};
     private final JwtAuthFilter jFilter;
     private final JwtAuthEntryPoint jPoint;
-
-
 
     @Bean
     AuthenticationManager authenticationManager(
@@ -46,7 +43,9 @@ public class SecurityConfig {
             authorize.requestMatchers(ALLOWED_URLS).permitAll();
             authorize.requestMatchers("/api/auth/login").permitAll();
             authorize.requestMatchers("/api/auth/refresh").permitAll();
-            authorize.anyRequest().permitAll();
+            authorize.requestMatchers("/api/auth/change-password").authenticated(); // Защищаем смену пароля
+            authorize.requestMatchers("/api/files/upload").authenticated(); // Защищаем загрузку файлов
+            authorize.anyRequest().permitAll(); // Остальное пока разрешаем
         });
 
         http.sessionManagement(session -> session.sessionCreationPolicy(
@@ -62,6 +61,4 @@ public class SecurityConfig {
     static PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
     }
-    
-
 }

@@ -4,6 +4,13 @@ spring:
   application:
     name: "Demo"
     version: "0.1"
+  
+  # НАСТРОЙКИ ДЛЯ ЗАГРУЗКИ ФАЙЛОВ
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
 
 ---
 
@@ -42,6 +49,10 @@ server:
       cookie:
         same-site: none
         secure: true
+
+# НАСТРОЙКИ ДЛЯ ЗАГРУЗКИ ФАЙЛОВ
+file:
+  upload-dir: uploads
 
 jwt:
   secret: 66546A555E5A7234753778214123222A472D4B614E645262356B587032733576
@@ -95,6 +106,9 @@ logging:
     # Tomcat и веб-сервер
     org.apache.tomcat: WARN
     org.apache.catalina: WARN
+    
+    # File upload
+    com.example.demo.service.FileStorageService: INFO
     
   pattern:
     console: "%d{HH:mm:ss} %-5level %logger{20} - %msg%n"
