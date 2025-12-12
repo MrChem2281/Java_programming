@@ -1,7 +1,7 @@
 ================================================== 
 === ВСЕ JAVA ФАЙЛЫ ПРОЕКТА 
 ================================================== 
-Дата создания: 28.11.2025 19:25:42,58 
+Дата создания: 13.12.2025  1:51:33,50 
 Проект: E:\My Project\Java_programming 
  
  
@@ -162,13 +162,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-
     private static final String[] ALLOWED_URLS =
-    {"/swagger-ui/**", "/v3/api-docs/**"};
+    {"/swagger-ui/**", "/v3/api-docs/**", "/uploads/**"};
     private final JwtAuthFilter jFilter;
     private final JwtAuthEntryPoint jPoint;
-
-
 
     @Bean
     AuthenticationManager authenticationManager(
@@ -184,7 +181,9 @@ public class SecurityConfig {
             authorize.requestMatchers(ALLOWED_URLS).permitAll();
             authorize.requestMatchers("/api/auth/login").permitAll();
             authorize.requestMatchers("/api/auth/refresh").permitAll();
-            authorize.anyRequest().permitAll();
+            authorize.requestMatchers("/api/auth/change-password").authenticated(); // Защищаем смену пароля
+            authorize.requestMatchers("/api/files/upload").authenticated(); // Защищаем загрузку файлов
+            authorize.anyRequest().permitAll(); // Остальное пока разрешаем
         });
 
         http.sessionManagement(session -> session.sessionCreationPolicy(
@@ -200,10 +199,31 @@ public class SecurityConfig {
     static PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
     }
-    
-
-}
+} 
  
+================================================== 
+ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\config\WebConfig.java 
+================================================== 
+ 
+package com.example.demo.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+    
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
+    
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + uploadDir + "/");
+    }
+} 
  
 ================================================== 
 ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\controller\AuthController.java 
@@ -298,6 +318,41 @@ public class DeviceController {
         System.out.println("Command to " + deviceId + ": " + action + " value: " + value);
         
         return ResponseEntity.ok("Command sent successfully");
+    }
+} 
+ 
+================================================== 
+ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\controller\FileController.java 
+================================================== 
+ 
+package com.example.demo.controller;
+
+import com.example.demo.service.FileStorageService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/files")
+@RequiredArgsConstructor
+public class FileController {
+    
+    private final FileStorageService fileStorageService;
+    
+    @PostMapping("/upload")
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        try {
+            String fileUrl = fileStorageService.storeFile(file);
+            return ResponseEntity.ok(Map.of(
+                "message", "Файл успешно загружен",
+                "fileUrl", fileUrl
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 } 
  
@@ -461,6 +516,59 @@ public class StatsController {
         ));
     }
 } 
+ 
+================================================== 
+ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\controller\UserController.java 
+================================================== 
+ 
+package com.example.demo.controller;
+
+import com.example.demo.dto.ChangePasswordRequest;
+import com.example.demo.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/user")
+@RequiredArgsConstructor
+public class UserController {
+    
+    private final UserService userService;
+    
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+        try {
+            userService.changePassword(request);
+            return ResponseEntity.ok(Map.of("message", "Пароль успешно изменен"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+} 
+ 
+================================================== 
+ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\dto\ChangePasswordRequest.java 
+================================================== 
+ 
+package com.example.demo.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ChangePasswordRequest(
+    @NotBlank(message = "Текущий пароль обязателен")
+    String currentPassword,
+    
+    @NotBlank(message = "Новый пароль обязателен")
+    @Size(min = 6, message = "Новый пароль должен содержать минимум 6 символов")
+    String newPassword,
+    
+    @NotBlank(message = "Подтверждение пароля обязательно")
+    String confirmPassword
+) {} 
  
 ================================================== 
 ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\dto\DeviceDataRequest.java 
@@ -1888,6 +1996,70 @@ public class AutomationService {
 } 
  
 ================================================== 
+ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\service\FileStorageService.java 
+================================================== 
+ 
+package com.example.demo.service;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
+
+@Slf4j
+@Service
+public class FileStorageService {
+    
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
+    
+    public String storeFile(MultipartFile file) {
+        try {
+            // Создаем директорию если не существует
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            
+            // Проверяем тип файла (опционально)
+            String contentType = file.getContentType();
+            if (contentType == null) {
+                throw new RuntimeException("Не удалось определить тип файла");
+            }
+            
+            // Генерируем уникальное имя файла
+            String originalFileName = file.getOriginalFilename();
+            String fileExtension = "";
+            if (originalFileName != null && originalFileName.contains(".")) {
+                fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            }
+            
+            String fileName = UUID.randomUUID().toString() + fileExtension;
+            Path filePath = uploadPath.resolve(fileName);
+            
+            // Сохраняем файл
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            
+            String fileUrl = "/uploads/" + fileName;
+            log.info("Файл сохранен: {}", filePath);
+            
+            return fileUrl;
+            
+        } catch (IOException e) {
+            log.error("Ошибка при сохранении файла: {}", e.getMessage());
+            throw new RuntimeException("Не удалось сохранить файл: " + e.getMessage());
+        }
+    }
+} 
+ 
+================================================== 
 ФАЙЛ: E:\My Project\Java_programming\src\main\java\com\example\demo\service\ModeService.java 
 ================================================== 
  
@@ -2241,8 +2413,10 @@ import java.util.List;
 
 import javax.management.relation.RoleNotFoundException;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.dto.ChangePasswordRequest;
 import com.example.demo.dto.UserDto;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.mapper.UserMapper;
@@ -2252,23 +2426,50 @@ import com.example.demo.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
-
 @Service
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> getUsers(){
         return userRepository.findAll().stream().map(UserMapper::userToUserDto).toList();
     }
+    
     public User getByUsername(String username){
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("user not found with username" + username));
-        
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResourceNotFoundException("user not found with username" + username));
         return user;
     }
-}
- 
+    
+    public void changePassword(ChangePasswordRequest request) {
+        // Получаем текущего пользователя из SecurityContext
+        String currentUsername = getCurrentUsername();
+        User user = getByUsername(currentUsername);
+        
+        // Проверяем текущий пароль
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new RuntimeException("Текущий пароль неверен");
+        }
+        
+        // Проверяем совпадение нового пароля и подтверждения
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new RuntimeException("Новый пароль и подтверждение не совпадают");
+        }
+        
+        // Обновляем пароль
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+    }
+    
+    private String getCurrentUsername() {
+        // В реальном приложении получаем из SecurityContext
+        // Здесь упрощенная реализация - нужно интегрировать с JWT
+        return org.springframework.security.core.context.SecurityContextHolder
+            .getContext().getAuthentication().getName();
+    }
+} 
  
 ================================================== 
 ФАЙЛ: E:\My Project\Java_programming\src\test\java\com\example\demo\DemoApplicationTests.java 
@@ -2291,6 +2492,6 @@ class DemoApplicationTests {
  
 ================================================== 
 ИТОГО: 
-Обработано файлов: 49 
+Обработано файлов: 54 
 Всего строк кода: 0 
 ================================================== 

@@ -29,10 +29,10 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
   
   # НАСТРОЙКИ ДЛЯ УМНОГО ДОМА
   smart-home:
@@ -84,10 +84,10 @@ logging:
     org.springframework.security: INFO
     
     # Hibernate - УБИРАЕМ СПАМ SQL
-    org.hibernate.SQL: WARN                    # Только предупреждения и ошибки
+    org.hibernate.SQL: OFF                    # Только предупреждения и ошибки
     org.hibernate.type.descriptor.sql: WARN    # Параметры запросов
     org.hibernate.orm.jdbc.bind: WARN          # Биндинг параметров
-    org.hibernate.stat: WARN                   # Статистика
+    org.hibernate.stat: WARN                   # Статистика              
     
     # Spring Data JPA - уменьшаем логи
     org.springframework.data.jpa: WARN
@@ -120,6 +120,6 @@ logging:
 ---
 
 spring:
-    config:
-        activate:
-            on-profile: prod
+  config:
+    activate:
+      on-profile: prod

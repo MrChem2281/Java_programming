@@ -200,9 +200,9 @@ public class AutomationService {
     }
     
     private void sendCommand(String deviceId, String command, Double value) {
-        log.info("🚀 [{}] Command to {}: {} value: {}", 
+        log.debug("🚀 [{}] Command to {}: {} value: {}", 
                  LocalDateTime.now(), deviceId, command, value);
-        System.out.println("🚀 [" + LocalDateTime.now() + "] Command to " + deviceId + ": " + command + " value: " + value);
+        // System.out.println("🚀 [" + LocalDateTime.now() + "] Command to " + deviceId + ": " + command + " value: " + value);
         
         Device device = deviceRepository.findByDeviceId(deviceId);
         if (device != null) {

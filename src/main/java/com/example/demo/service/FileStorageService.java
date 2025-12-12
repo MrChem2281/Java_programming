@@ -19,6 +19,10 @@ public class FileStorageService {
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
     
+    public String getUploadDir() {
+        return uploadDir;
+    }
+    
     public String storeFile(MultipartFile file) {
         try {
             // Создаем директорию если не существует
@@ -27,13 +31,7 @@ public class FileStorageService {
                 Files.createDirectories(uploadPath);
             }
             
-            // Проверяем тип файла (опционально)
-            String contentType = file.getContentType();
-            if (contentType == null) {
-                throw new RuntimeException("Не удалось определить тип файла");
-            }
-            
-            // Генерируем уникальное имя файла
+            // Генерируем уникальное имя файла с сохранением расширения
             String originalFileName = file.getOriginalFilename();
             String fileExtension = "";
             if (originalFileName != null && originalFileName.contains(".")) {
@@ -47,7 +45,7 @@ public class FileStorageService {
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
             
             String fileUrl = "/uploads/" + fileName;
-            log.info("Файл сохранен: {}", filePath);
+            log.info("Файл сохранен: {} ({} байт)", filePath, file.getSize());
             
             return fileUrl;
             
