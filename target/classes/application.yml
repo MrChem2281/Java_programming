@@ -67,6 +67,23 @@ jwt:
       second: 604800
     name: refresh_token
 
+
+# Telegram Bot Configuration
+telegram:
+  bot:
+    token: "8474526772:AAEljitnUV6mmwaSPuXV1jY_zYRdax7k3AI"  # Получите у @BotFather
+    username: "demo_4lab_bot"  # Без @
+  
+  # Настройки отчетов
+  report:
+    enabled: true
+    auto-send: false  # Автоматическая отправка отключена
+
+
+
+
+
+
 # ЛОГИРОВАНИЕ ДЛЯ УМНОГО ДОМА
 logging:
   level:
